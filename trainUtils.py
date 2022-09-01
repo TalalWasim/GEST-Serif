@@ -40,7 +40,7 @@ def train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device
     train_true = []
 
     # Reconstruction
-    for batch, targets in tqdm(train_loader):
+    for batch, targets in train_loader:
 
         # Move the training data to the GPU
         batch = batch.to(device, dtype=torch.float)
@@ -105,7 +105,7 @@ def test(model, test_loader, criterion, device):
 
     with torch.no_grad():
 
-        for batch, targets in tqdm(test_loader):
+        for batch, targets in test_loader:
 
             # Move the testing data to the GPU
             batch = batch.to(device, dtype=torch.float)
@@ -198,6 +198,9 @@ def train(first_epoch, num_epochs, name, checkpoint_dir, model, train_loader, te
     
 
     for epoch in range(first_epoch, first_epoch + num_epochs):
+        # test print
+        print(f'[{epoch:03d}] starting epoch')
+
         # training phase
         train_loss, train_accuracy = train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device)
 
@@ -291,7 +294,7 @@ def evaluate(name, test_loader, checkpoint_path, CLASSES):
 
     with torch.no_grad():
 
-        for batch, targets in tqdm(test_loader):
+        for batch, targets in test_loader:
             a = F.one_hot(targets, 11).numpy()
             y_true.append(a)
 
@@ -500,6 +503,7 @@ def plot_loss(log, checkpoint_dir, figsize=10, linewidth=2, fonsize=15):
     plt.ylabel('Loss')
     plt.xticks(epochs)
     plt.legend(loc="upper right", prop={'size':fonsize})
+    plt.grid()
     plt.savefig(os.path.join(checkpoint_dir, 'loss.png'), bbox_inches='tight')
 
 
@@ -527,8 +531,9 @@ def plot_accuracy(log, checkpoint_dir, figsize=10, linewidth=2, fonsize=15):
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy')
     plt.xticks(epochs)
-    plt.ylim(0, 1.3)
+    plt.ylim(0, 1.05)
     plt.legend(loc="lower right", prop={'size':fonsize})
+    plt.grid()
     plt.savefig(os.path.join(checkpoint_dir, 'accuracy.png'), bbox_inches='tight')
 
 
@@ -653,7 +658,7 @@ def get_classification_report(name, test_loader, checkpoint_path, CLASSES):
 
     with torch.no_grad():
 
-        for batch, targets in tqdm(test_loader):
+        for batch, targets in test_loader:
 
             # Move the testing data to the GPU
             batch = batch.to(device, dtype=torch.float)

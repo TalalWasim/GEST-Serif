@@ -10,7 +10,7 @@ from trainUtils import load_dataset, get_model, get_optimizer_scheduler, train
 # define arguments
 parser = argparse.ArgumentParser(description="Provide adversarial evaluation pipeline.")
 parser.add_argument("--model", help="model to be trained (Resnet18, EfNetB0, ViT_B16)", default='Resnet18', type=str)
-parser.add_argument('--pretrained', help="load pretrained weights", action='store_true', type=bool)
+parser.add_argument('--pretrained', help="load pretrained weights", action='store_true')
 parser.add_argument("--lr", help="base learning rate", default=0.01, type=float)
 parser.add_argument("--epochs", help="number of training epochs", default=30, type=int)
 parser.add_argument("--batchsize", help="training batch size", default=256, type=int)
