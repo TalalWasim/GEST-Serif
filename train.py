@@ -5,7 +5,8 @@ import os
 import shutil
 import argparse
 
-from trainUtils import load_dataset, get_model, get_optimizer_scheduler, train
+from trainUtils import train
+
 
 # define arguments
 parser = argparse.ArgumentParser(description="Provide adversarial evaluation pipeline.")
