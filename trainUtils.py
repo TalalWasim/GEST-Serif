@@ -416,7 +416,33 @@ def get_model(model_name, num_classes, pretrained=False):
 #### Load Data Function
 #############################################
 
-def load_dataset(train_batch_size, img_size, adv_data_path, adv_targets_path):
+def get_transforms(means, stds, adv_training=False, adv_dataset='gaussian_blur'):
+    test_transform = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(means, stds)
+    ])
+
+    if adv_training:
+        if adv_dataset == 'gaussian_blur':
+            train_transform = test_transform
+        elif adv_dataset == 'saturate':
+            train_transform = test_transform
+        elif adv_dataset == 'elastic_transform':
+            train_transform = test_transform
+    else:
+        train_transform = test_transform
+    
+    return train_transform, test_transform
+
+
+
+#############################################
+#### Load Data Function
+#############################################
+
+def load_dataset(train_batch_size, adv_training, adv_dataset, adv_data_path, adv_targets_path):
 
     train_data = CIFAR10(root='../datasets/CIFAR-10', train=True, download=True)
 
@@ -425,22 +451,10 @@ def load_dataset(train_batch_size, img_size, adv_data_path, adv_targets_path):
     stds = train_data.data.std(axis = (0,1,2)) / 255
 
     # Define Transform
-    train_transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.RandomCrop(img_size),
-        transforms.ToTensor(),
-        transforms.Normalize(means, stds)
-    ])
+    train_transform, test_transform = get_transforms(means, stds, adv_training, adv_dataset)
 
-    test_transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize(means, stds)
-    ])
-
-    train_dataset = CIFAR10('./data/cifar10', train=True, download=True, transform=train_transform)
-    test_dataset = CIFAR10('./data/cifar10', train=False, download=True, transform=test_transform)
+    train_dataset = CIFAR10('../datasets/CIFAR-10', train=True, download=True, transform=train_transform)
+    test_dataset = CIFAR10('../datasets/CIFAR-10', train=False, download=True, transform=test_transform)
 
     train_loader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True, num_workers=8)
     test_loader = DataLoader(test_dataset, batch_size=train_batch_size, shuffle=False, num_workers=8)
