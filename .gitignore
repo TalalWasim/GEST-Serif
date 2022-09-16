@@ -6,6 +6,7 @@ __pycache__/
 # specific
 results/
 data/
+slurm-*
 
 # C extensions
 *.so

@@ -160,9 +160,16 @@ def test_adv(model, adv_loaders, criterion, device):
 #### Final Train Function
 #############################################
 
-def train(first_epoch, num_epochs, name, checkpoint_dir, model, train_loader, test_loader, adv_loaders, optimizer, scheduler):
+def train(args):
+    # Build dataloaders
+    train_loader, test_loader, adv_loaders, CLASSES = load_dataset(args)
+
+    # get model, optimizer and scheduler
+    model = get_model(args.model, len(CLASSES), pretrained=args.pretrained)
+    optimizer, scheduler = get_optimizer_scheduler(model, args.initial_lr, args.step, args.gamma)
+
     # set device
-    device = torch.device("cuda:2") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cuda:{}".format(args.gpu)) if torch.cuda.is_available() else torch.device("cpu")
     model = model.to(device);
 
     # Loss, Scheduler, Optimizer
@@ -206,8 +213,8 @@ def train(first_epoch, num_epochs, name, checkpoint_dir, model, train_loader, te
     }
     
 
-    for epoch in range(first_epoch, first_epoch + num_epochs):
-        # test print
+    for epoch in range(1, 1 + args.epochs):
+        # start print
         print(f'[{epoch:03d}] starting epoch')
 
         # training phase
@@ -228,7 +235,7 @@ def train(first_epoch, num_epochs, name, checkpoint_dir, model, train_loader, te
         print(f'[{epoch:03d}] severity 4 loss: {test_adv_loss[3]:04f}', f'severity 4 accuracy: {test_adv_accuracy[3]:04f}')
         print(f'[{epoch:03d}] severity 5 loss: {test_adv_loss[4]:04f}', f'severity 5 accuracy: {test_adv_accuracy[4]:04f}\n')
         
-        # updata log dictionary
+        # update log dictionary
         log_dict['train_losses'].append(train_loss)
         log_dict['train_accuracies'].append(train_accuracy)
         log_dict['test_losses'].append(test_loss)
@@ -248,8 +255,8 @@ def train(first_epoch, num_epochs, name, checkpoint_dir, model, train_loader, te
             log_dict['adv_accuracies']['severity_{}'.format(i+1)].append(accuracy)
         
         # Save current checkpoint
-        checkpoint_name = name + '-CURRENT.pth'
-        checkpoint_filepath = os.path.join(checkpoint_dir, checkpoint_name)
+        checkpoint_name = args.name + 'Checkpoint-LAST.pth'
+        checkpoint_filepath = os.path.join(args.checkpoint_dir, checkpoint_name)
         save_checkpoint(optimizer, scheduler, model, epoch, checkpoint_filepath)
         
         # update best checkpoint
@@ -257,8 +264,8 @@ def train(first_epoch, num_epochs, name, checkpoint_dir, model, train_loader, te
             log_dict['best_test_loss'] = log_dict['current_test_loss']
             log_dict['best_test_epoch'] = epoch
 
-            checkpoint_name = name + '-BEST.pth'
-            checkpoint_filepath = os.path.join(checkpoint_dir, checkpoint_name)
+            checkpoint_name = 'Checkpoint-BEST.pth'
+            checkpoint_filepath = os.path.join(args.checkpoint_dir, checkpoint_name)
             save_checkpoint(optimizer, scheduler, model, epoch, checkpoint_filepath)
 
     # get classification reports
@@ -269,14 +276,14 @@ def train(first_epoch, num_epochs, name, checkpoint_dir, model, train_loader, te
         log_dict['cls_reports']['severity_{}'.format(i+1)] = get_classification_report(model, loader, device)
 
     # save log dictionary
-    log_name = name + '-LOG.pkl'
-    log_filepath = os.path.join(checkpoint_dir, log_name)
+    log_name = 'LOG.pkl'
+    log_filepath = os.path.join(args.checkpoint_dir, log_name)
     save_dict(log_filepath, log_dict)
 
     # save plot
     print('[EVAL] Generating Plots')
-    plot_loss(log_dict, checkpoint_dir, figsize=10, linewidth=2, fonsize=15)
-    plot_accuracy(log_dict, checkpoint_dir, figsize=10, linewidth=2, fonsize=15)
+    plot_loss(log_dict, args.checkpoint_dir, figsize=10, linewidth=2, fonsize=15)
+    plot_accuracy(log_dict, args.checkpoint_dir, figsize=10, linewidth=2, fonsize=15)
     
     return log_dict
 
@@ -368,7 +375,7 @@ def load_dict(path):
 
 
 #############################################
-#### Build Model Function
+#### Build Model
 #############################################
 
 def get_model(model_name, num_classes, pretrained=False):
@@ -413,7 +420,7 @@ def get_model(model_name, num_classes, pretrained=False):
 
 
 #############################################
-#### Load Data Function
+#### Get Transforms
 #############################################
 
 def get_transforms(means, stds, adv_training=False, adv_dataset='gaussian_blur'):
@@ -439,10 +446,10 @@ def get_transforms(means, stds, adv_training=False, adv_dataset='gaussian_blur')
 
 
 #############################################
-#### Load Data Function
+#### Load Data
 #############################################
 
-def load_dataset(train_batch_size, adv_training, adv_dataset, adv_data_path, adv_targets_path):
+def load_dataset(args):
 
     train_data = CIFAR10(root='../datasets/CIFAR-10', train=True, download=True)
 
@@ -451,20 +458,20 @@ def load_dataset(train_batch_size, adv_training, adv_dataset, adv_data_path, adv
     stds = train_data.data.std(axis = (0,1,2)) / 255
 
     # Define Transform
-    train_transform, test_transform = get_transforms(means, stds, adv_training, adv_dataset)
+    train_transform, test_transform = get_transforms(means, stds, args.adv_training, args.adv_dataset)
 
     train_dataset = CIFAR10('../datasets/CIFAR-10', train=True, download=True, transform=train_transform)
     test_dataset = CIFAR10('../datasets/CIFAR-10', train=False, download=True, transform=test_transform)
 
-    train_loader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True, num_workers=8)
-    test_loader = DataLoader(test_dataset, batch_size=train_batch_size, shuffle=False, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
     # Define the classes
     CLASSES = train_dataset.classes
 
     # Define adv data/targets
-    adv_data = np.load(adv_data_path)
-    adv_targets = np.load(adv_targets_path)
+    adv_data = np.load(args.adv_data_path)
+    adv_targets = np.load(args.adv_targets_path)
 
     # Define adv datasets
     adv_dataset_sev_1 = ADVDataset(adv_data[:10000], adv_targets[0:10000], test_transform)
@@ -473,11 +480,11 @@ def load_dataset(train_batch_size, adv_training, adv_dataset, adv_data_path, adv
     adv_dataset_sev_4 = ADVDataset(adv_data[30000:40000], adv_targets[30000:40000], test_transform)
     adv_dataset_sev_5 = ADVDataset(adv_data[40000:], adv_targets[40000:], test_transform)
 
-    adv_loader_sev_1 = DataLoader(adv_dataset_sev_1, batch_size=train_batch_size, shuffle=False, num_workers=8)
-    adv_loader_sev_2 = DataLoader(adv_dataset_sev_2, batch_size=train_batch_size, shuffle=False, num_workers=8)
-    adv_loader_sev_3 = DataLoader(adv_dataset_sev_3, batch_size=train_batch_size, shuffle=False, num_workers=8)
-    adv_loader_sev_4 = DataLoader(adv_dataset_sev_4, batch_size=train_batch_size, shuffle=False, num_workers=8)
-    adv_loader_sev_5 = DataLoader(adv_dataset_sev_5, batch_size=train_batch_size, shuffle=False, num_workers=8)
+    adv_loader_sev_1 = DataLoader(adv_dataset_sev_1, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    adv_loader_sev_2 = DataLoader(adv_dataset_sev_2, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    adv_loader_sev_3 = DataLoader(adv_dataset_sev_3, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    adv_loader_sev_4 = DataLoader(adv_dataset_sev_4, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    adv_loader_sev_5 = DataLoader(adv_dataset_sev_5, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
     adv_loaders = (adv_loader_sev_1, adv_loader_sev_2, adv_loader_sev_3, adv_loader_sev_4, adv_loader_sev_5)
     

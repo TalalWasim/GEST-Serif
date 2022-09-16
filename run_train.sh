@@ -1,10 +1,11 @@
 python train.py \
 --model 'Resnet18' \
+--adv_folder '../datasets/CIFAR-10-C' \
 --adv_dataset 'gaussian_blur' \
---lr 0.01 \
+--base_lr 0.01 \
 --epochs 3 \
---batchsize 256 \
+--batch_size 512 \
 --gamma 0.2 \
 --step 5 \
---gpu 3 \
+--gpu 0 \
 --seed 50
