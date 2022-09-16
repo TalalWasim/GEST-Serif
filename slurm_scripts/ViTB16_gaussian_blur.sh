@@ -9,7 +9,7 @@
 #SBATCH --gres=gpu:1
 
 python train.py \
---model 'Resnet18' \
+--model 'ViTB16' \
 --adv_folder '../datasets/CIFAR-10-C' \
 --adv_dataset 'gaussian_blur' \
 --base_lr 0.01 \

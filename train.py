@@ -45,13 +45,13 @@ os.makedirs(checkpoint_path, exist_ok=True)
 
 # set training params in args
 args.initial_lr = args.base_lr * (args.batch_size/256)
-args.name = '{}-LR-{}-gamma-{}-step-{}-epochs-{}-advdata-{}-advtrain-{}'.format(args.model, args.base_lr, args.gamma, args.step,
-                                                                                args.epochs, args.adv_dataset, args.adv_training)
+args.name = '{}-LR-{}-gamma-{}-step-{}-epochs-{}-advtrain-{}'.format(args.model, args.base_lr, args.gamma,
+                                                                    args.step, args.epochs, args.adv_training)
 
 
 # Create Directories
 # NOTE: THIS WILL OVERWRITE PREVIOUS RUN OF THE SAME NAME
-args.checkpoint_dir = os.path.join(checkpoint_path, args.name)
+args.checkpoint_dir = os.path.join(checkpoint_path, args.adv_dataset, args.name)
 args.adv_data_path = os.path.join(args.adv_folder, '{}.npy'.format(args.adv_dataset))
 args.adv_targets_path = os.path.join(args.adv_folder, 'labels.npy')
 

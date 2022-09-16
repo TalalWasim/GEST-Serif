@@ -403,7 +403,7 @@ def get_model(model_name, num_classes, pretrained=False):
         
         return model
     
-    elif model_name == 'ViT_B16':
+    elif model_name == 'ViTB16':
 
         # download pretrained model
         model = torchvision.models.vit_b_16(pretrained=pretrained)
@@ -667,7 +667,6 @@ def plot_multiclass_roc(name, fpr_tpr, auc_scores, figsize, linewidth, fontsize)
 #### Generate Classifiction Report
 #############################################
 
-
 def get_classification_report(model, test_loader, device):
 
     # put model in evaluation mode
@@ -705,7 +704,6 @@ def get_classification_report(model, test_loader, device):
 #############################################
 #### Custom Dataloader for npy Format
 #############################################
-
 
 class ADVDataset(Dataset):
     """ADV Dataset"""
