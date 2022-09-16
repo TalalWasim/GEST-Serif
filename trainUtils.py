@@ -255,7 +255,7 @@ def train(args):
             log_dict['adv_accuracies']['severity_{}'.format(i+1)].append(accuracy)
         
         # Save current checkpoint
-        checkpoint_name = args.name + 'Checkpoint-LAST.pth'
+        checkpoint_name = 'Checkpoint-LAST.pth'
         checkpoint_filepath = os.path.join(args.checkpoint_dir, checkpoint_name)
         save_checkpoint(optimizer, scheduler, model, epoch, checkpoint_filepath)
         
