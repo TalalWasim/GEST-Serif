@@ -10,18 +10,18 @@ import torch.nn as nn
 
 from tqdm import tqdm
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
 import random
 import os
 import shutil
 import pickle
+from PIL import Image
 
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import imread, cm
 
-import tensorflow_datasets as tfds
-from PIL import Image
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+
 
 
 
@@ -39,7 +39,7 @@ def train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device
     train_predictions = []
     train_true = []
 
-    # Reconstruction
+    # Training
     for batch, targets in train_loader:
 
         # Move the training data to the GPU
@@ -185,15 +185,24 @@ def train(first_epoch, num_epochs, name, checkpoint_dir, model, train_loader, te
                                 'severity_2'    : [],
                                 'severity_3'    : [],
                                 'severity_4'    : [],
-                                'severity_5'    : [],
+                                'severity_5'    : []
                                 },
         'adv_accuracies'        : {
                                 'severity_1'    : [],
                                 'severity_2'    : [],
                                 'severity_3'    : [],
                                 'severity_4'    : [],
-                                'severity_5'    : [],
-                                }
+                                'severity_5'    : []
+                                },
+        'cls_reports'           : {
+                                'train': {},
+                                'test': {},
+                                'severity_1': {},
+                                'severity_2': {},
+                                'severity_3': {},
+                                'severity_4': {},
+                                'severity_5': {}
+                                } 
     }
     
 
@@ -239,7 +248,7 @@ def train(first_epoch, num_epochs, name, checkpoint_dir, model, train_loader, te
             log_dict['adv_accuracies']['severity_{}'.format(i+1)].append(accuracy)
         
         # Save current checkpoint
-        checkpoint_name = name + '-CURRENT.pkl'
+        checkpoint_name = name + '-CURRENT.pth'
         checkpoint_filepath = os.path.join(checkpoint_dir, checkpoint_name)
         save_checkpoint(optimizer, scheduler, model, epoch, checkpoint_filepath)
         
@@ -248,9 +257,16 @@ def train(first_epoch, num_epochs, name, checkpoint_dir, model, train_loader, te
             log_dict['best_test_loss'] = log_dict['current_test_loss']
             log_dict['best_test_epoch'] = epoch
 
-            checkpoint_name = name + '-BEST.pkl'
+            checkpoint_name = name + '-BEST.pth'
             checkpoint_filepath = os.path.join(checkpoint_dir, checkpoint_name)
             save_checkpoint(optimizer, scheduler, model, epoch, checkpoint_filepath)
+
+    # get classification reports
+    print('[EVAL] Generating Classification Reports')
+    log_dict['cls_reports']['train'] = get_classification_report(model, train_loader, device)
+    log_dict['cls_reports']['test'] = get_classification_report(model, test_loader, device)
+    for i, loader in enumerate(adv_loaders):
+        log_dict['cls_reports']['severity_{}'.format(i+1)] = get_classification_report(model, loader, device)
 
     # save log dictionary
     log_name = name + '-LOG.pkl'
@@ -258,6 +274,7 @@ def train(first_epoch, num_epochs, name, checkpoint_dir, model, train_loader, te
     save_dict(log_filepath, log_dict)
 
     # save plot
+    print('[EVAL] Generating Plots')
     plot_loss(log_dict, checkpoint_dir, figsize=10, linewidth=2, fonsize=15)
     plot_accuracy(log_dict, checkpoint_dir, figsize=10, linewidth=2, fonsize=15)
     
@@ -630,21 +647,7 @@ def plot_multiclass_roc(name, fpr_tpr, auc_scores, figsize, linewidth, fontsize)
 #############################################
 
 
-def get_classification_report(name, test_loader, checkpoint_path, CLASSES):
-    # get model name
-    model_name = name.split('-')[0]
-
-    # get device
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
-    # Build Model
-    model = get_model(model_name, len(CLASSES))
-
-    # load checkpoint
-    load_checkpoint(None, None, model, checkpoint_path)
-
-    # Change to available device
-    model.to(device);
+def get_classification_report(model, test_loader, device):
 
     # put model in evaluation mode
     model.eval()
@@ -675,7 +678,7 @@ def get_classification_report(name, test_loader, checkpoint_path, CLASSES):
     # Collect predictions into y_pred
     y_pred = np.array(test_predictions, dtype=np.float32)
 
-    return classification_report(y_true, y_pred)
+    return classification_report(y_true, y_pred, output_dict=True)
 
 
 #############################################
