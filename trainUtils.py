@@ -218,12 +218,15 @@ def train(args):
         print(f'[{epoch:03d}] starting epoch')
 
         # training phase
+        print(f'[{epoch:03d}] starting training phase')
         train_loss, train_accuracy = train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device)
 
         # test phase
+        print(f'[{epoch:03d}] starting testing phase')
         test_loss, test_accuracy = test(model, test_loader, criterion, device)
 
         # adversarial test phase
+        print(f'[{epoch:03d}] starting adversarial testing phase')
         test_adv_loss, test_adv_accuracy = test_adv(model, adv_loaders, criterion, device)
         
         # print console log
