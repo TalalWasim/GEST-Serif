@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=resnet_elastic_transform
+#SBATCH --job-name=resnet18_elastic
 #SBATCH --partition=default-short
 #SBATCH --time=12:00:00
 #SBATCH --nodes=1

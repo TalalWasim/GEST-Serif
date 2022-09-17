@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=resnet18_saturate
+#SBATCH --job-name=efnetb2_saturate
 #SBATCH --partition=default-short
 #SBATCH --time=12:00:00
 #SBATCH --nodes=1
@@ -9,7 +9,7 @@
 #SBATCH --gres=gpu:1
 
 python train.py \
---model 'Resnet18' \
+--model 'EfNetB2' \
 --adv_folder '../datasets/CIFAR-10-C' \
 --adv_dataset 'saturate' \
 --base_lr 0.01 \

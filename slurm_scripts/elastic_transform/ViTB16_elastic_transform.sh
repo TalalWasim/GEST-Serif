@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=vitb16_elastic_transform
+#SBATCH --job-name=vitb16_elastic
 #SBATCH --partition=default-short
 #SBATCH --time=12:00:00
 #SBATCH --nodes=1

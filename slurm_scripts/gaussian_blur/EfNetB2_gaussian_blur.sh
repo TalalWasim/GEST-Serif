@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=resnet18_saturate
+#SBATCH --job-name=efnetb2_gaussian
 #SBATCH --partition=default-short
 #SBATCH --time=12:00:00
 #SBATCH --nodes=1
@@ -9,9 +9,9 @@
 #SBATCH --gres=gpu:1
 
 python train.py \
---model 'Resnet18' \
+--model 'EfNetB2' \
 --adv_folder '../datasets/CIFAR-10-C' \
---adv_dataset 'saturate' \
+--adv_dataset 'gaussian_blur' \
 --base_lr 0.01 \
 --epochs 40 \
 --batch_size 128 \

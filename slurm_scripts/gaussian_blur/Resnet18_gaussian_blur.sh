@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=resnet_gaussian
+#SBATCH --job-name=resnet18_gaussian
 #SBATCH --partition=default-short
 #SBATCH --time=12:00:00
 #SBATCH --nodes=1
