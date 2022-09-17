@@ -46,8 +46,10 @@ os.makedirs(checkpoint_path, exist_ok=True)
 
 # set training params in args
 args.initial_lr = args.base_lr * (args.batch_size/256)
-args.name = '{}-LR-{}-gamma-{}-step-{}-epochs-{}-advtrain-{}'.format(args.model, args.base_lr, args.gamma,
-                                                                    args.step, args.epochs, args.adv_training)
+args.name = '{}-lr-{}-g-{}-s-{}-e-{}-adv-{}-pre-{}'.format(args.model, args.base_lr,
+                                                            args.gamma, args.step,
+                                                            args.epochs, args.adv_training,
+                                                            args.pretrained)
 
 
 # Create Directories

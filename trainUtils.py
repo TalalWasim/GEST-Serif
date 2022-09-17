@@ -392,10 +392,10 @@ def get_model(model_name, num_classes, pretrained=False):
         
         return model
     
-    elif model_name == 'EfNetB0':
+    elif model_name == 'EfNetB2':
 
         # download pretrained model
-        model = torchvision.models.efficientnet_b0(pretrained=pretrained)
+        model = torchvision.models.efficientnet_b2(pretrained=pretrained)
 
         # define input and output features size
         in_features = model.classifier[1].in_features
