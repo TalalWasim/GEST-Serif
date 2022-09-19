@@ -415,23 +415,23 @@ class ADVModel(nn.Module):
             self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
             self.text_features = torch.load(CLIP_text_path)
         
-        def forward(self, x):
-            if self.CLIP_loss:
-                image_features = self.backbone(x)
-                text_features = self.text_features.to(image_features.device)
+    def forward(self, x):
+        if self.CLIP_loss:
+            image_features = self.backbone(x)
+            text_features = self.text_features.to(image_features.device)
 
-                # normalized features
-                image_features = image_features / image_features.norm(dim=1, keepdim=True)
-                text_features = text_features / text_features.norm(dim=1, keepdim=True)
+            # normalized features
+            image_features = image_features / image_features.norm(dim=1, keepdim=True)
+            text_features = text_features / text_features.norm(dim=1, keepdim=True)
 
-                # cosine similarity as logits
-                logit_scale = self.logit_scale.exp()
-                logits = logit_scale * image_features @ text_features.t()
+            # cosine similarity as logits
+            logit_scale = self.logit_scale.exp()
+            logits = logit_scale * image_features @ text_features.t()
 
-            else:
-                logits = self.backbone(x)
+        else:
+            logits = self.backbone(x)
 
-            return logits
+        return logits
 
 
 
@@ -559,6 +559,7 @@ def plot_loss(log, checkpoint_dir, figsize=10, linewidth=2, fonsize=15):
     plt.legend(loc="upper right", prop={'size':fonsize})
     plt.grid()
     plt.savefig(os.path.join(checkpoint_dir, 'loss.png'), bbox_inches='tight')
+
 
 
 #############################################
