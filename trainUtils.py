@@ -29,7 +29,7 @@ from sklearn.metrics import classification_report
 #### Single Epoch Training Function
 #############################################
 
-def train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device):
+def train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device, text_features=None):
 
     # put model in train mode
     model.train()
@@ -51,7 +51,10 @@ def train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device
         optimizer.zero_grad()
 
         # forward propagation
-        predictions = model(batch)
+        if text_features is None:
+            predictions = model(batch)
+        else:
+            get_clip_logits(model(batch), text_features)
 
         # calculate the loss
         loss = criterion(predictions, targets) # calculating loss
@@ -80,9 +83,9 @@ def train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device
     y_pred = np.array(train_predictions, dtype=np.float32)
 
     # Calculate accuracy as the average number of times y_true == y_pred
-    accuracy = np.mean([y_pred[i] == y_true[i] for i in range(len(y_true))])
+    train_accuracy = np.mean([y_pred[i] == y_true[i] for i in range(len(y_true))])
     
-    return train_loss, accuracy
+    return train_loss, train_accuracy
 
 
 
@@ -90,7 +93,7 @@ def train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device
 #### Test Function
 #############################################
 
-def test(model, test_loader, criterion, device):
+def test(model, test_loader, criterion, device, text_features=None):
 
     # put model in evaluation mode
     model.eval()
@@ -113,7 +116,10 @@ def test(model, test_loader, criterion, device):
             targets = targets.to(device)
 
             # forward propagation
-            predictions = model(batch)
+            if text_features is None:
+                predictions = model(batch)
+            else:
+                get_clip_logits(model(batch), text_features)
 
             # calculate the loss
             loss = criterion(predictions, targets)
@@ -133,9 +139,9 @@ def test(model, test_loader, criterion, device):
     y_pred = np.array(test_predictions, dtype=np.float32)
 
     # Calculate accuracy as the average number of times y_true == y_pred
-    accuracy = np.mean([y_pred[i] == y_true[i] for i in range(len(y_true))])
+    test_accuracy = np.mean([y_pred[i] == y_true[i] for i in range(len(y_true))])
 
-    return test_loss, accuracy
+    return test_loss, test_accuracy
 
 
 
@@ -143,17 +149,70 @@ def test(model, test_loader, criterion, device):
 #### Adversarial Test Function
 #############################################
 
-def test_adv(model, adv_loaders, criterion, device):
+def test_adv(model, adv_loaders, criterion, device, text_features=None):
 
     # test adv phase
     test_adv_loss = []
     test_adv_accuracy = []
     for loader in adv_loaders:
-        loss, accuracy = test(model, loader, criterion, device)
+        loss, accuracy = test(model, loader, criterion, device, text_features)
         test_adv_loss.append(loss)
         test_adv_accuracy.append(accuracy)
     
     return test_adv_loss, test_adv_accuracy
+
+
+
+#############################################
+#### Evaluation Function
+#############################################
+
+def evaluate(name, test_loader, checkpoint_path, CLASSES, text_features=None):
+
+    # get model name
+    model_name = name.split('-')[0]
+
+    # get device
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+    # Build Model
+    model = get_model(model_name, len(CLASSES))
+
+    # load checkpoint
+    load_checkpoint(None, None, model, checkpoint_path)
+
+    # Change to available device
+    model.to(device);
+
+    # put model in evaluation mode
+    model.eval();
+    
+    y_true = []
+    y_pred = []
+
+    with torch.no_grad():
+
+        for batch, targets in test_loader:
+            a = F.one_hot(targets, 11).numpy()
+            y_true.append(a)
+
+            # Move the testing data to the GPU
+            batch = batch.to(device, dtype=torch.float)
+            targets = targets.to(device)
+
+            # forward propagation
+            if text_features is None:
+                predictions = model(batch)
+            else:
+                get_clip_logits(model(batch), text_features)
+            predictions = F.softmax(predictions, dim=1)
+            y_pred.append(predictions.cpu().numpy())
+
+    y_true = np.concatenate(tuple(y_true), axis=0)
+    y_pred = np.concatenate(tuple(y_pred), axis=0)
+    
+    return y_true, y_pred
+
 
 
 #############################################
@@ -164,16 +223,20 @@ def train(args):
     # Build dataloaders
     train_loader, test_loader, adv_loaders, CLASSES = load_dataset(args)
 
-    # get model, optimizer and scheduler
-    model = get_model(args.model, len(CLASSES), pretrained=args.pretrained)
-    optimizer, scheduler = get_optimizer_scheduler(model, args.initial_lr, args.step, args.gamma)
-
-    # set device
+    # set device and create model
     device = torch.device("cuda:{}".format(args.gpu)) if torch.cuda.is_available() else torch.device("cpu")
+    model = get_model(args.model, len(CLASSES), pretrained=args.pretrained)
     model = model.to(device);
 
     # Loss, Scheduler, Optimizer
     criterion = get_loss()
+    optimizer, scheduler = get_optimizer_scheduler(model, args.initial_lr, args.step, args.gamma)
+
+    # Define CLIP Loss:
+    if args.CLIP_loss:
+        text_features = torch.load(args.CLIP_text_path)
+    else:
+        text_features = None
 
     # create log dictionary
     log_dict = {
@@ -219,15 +282,15 @@ def train(args):
 
         # training phase
         print(f'[{epoch:03d}] starting training phase')
-        train_loss, train_accuracy = train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device)
+        train_loss, train_accuracy = train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device, text_features)
 
         # test phase
         print(f'[{epoch:03d}] starting testing phase')
-        test_loss, test_accuracy = test(model, test_loader, criterion, device)
+        test_loss, test_accuracy = test(model, test_loader, criterion, device, text_features)
 
         # adversarial test phase
         print(f'[{epoch:03d}] starting adversarial testing phase')
-        test_adv_loss, test_adv_accuracy = test_adv(model, adv_loaders, criterion, device)
+        test_adv_loss, test_adv_accuracy = test_adv(model, adv_loaders, criterion, device, text_features)
         
         # print console log
         print(f'[{epoch:03d}] train loss: {train_loss:04f}', f'train accuracy: {train_accuracy:04f}')
@@ -292,58 +355,18 @@ def train(args):
 
 
 
-#############################################
-#### Evaluation Function
-#############################################
+############################################
+#### CLIP Logits Function
+############################################
 
-def evaluate(name, test_loader, checkpoint_path, CLASSES):
-
-    # get model name
-    model_name = name.split('-')[0]
-
-    # get device
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
-    # Build Model
-    model = get_model(model_name, len(CLASSES))
-
-    # load checkpoint
-    load_checkpoint(None, None, model, checkpoint_path)
-
-    # Change to available device
-    model.to(device);
-
-    # put model in evaluation mode
-    model.eval();
-    
-    y_true = []
-    y_pred = []
-
-    with torch.no_grad():
-
-        for batch, targets in test_loader:
-            a = F.one_hot(targets, 11).numpy()
-            y_true.append(a)
-
-            # Move the testing data to the GPU
-            batch = batch.to(device, dtype=torch.float)
-            targets = targets.to(device)
-
-            # forward propagation
-            predictions = model(batch)
-            predictions = F.softmax(predictions, dim=1)
-            y_pred.append(predictions.cpu().numpy())
-
-    y_true = np.concatenate(tuple(y_true), axis=0)
-    y_pred = np.concatenate(tuple(y_pred), axis=0)
-    
-    return y_true, y_pred
+def get_clip_logits(image_features, text_features):
+    return 0
 
 
 
-#############################################
+############################################
 #### Save/Load Functions
-#############################################
+############################################
 
 def save_checkpoint(optimizer, scheduler, model, epoch, filename):
     checkpoint_dict = {

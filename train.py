@@ -23,6 +23,8 @@ parser.add_argument("--step", help="step LR scheduler step size", default=5, typ
 parser.add_argument("--gpu", help="gpu id", default=0, type=int)
 parser.add_argument("--seed", help="random seed", default=50, type=int)
 parser.add_argument("--num_workers", help="number of data loading workers", default=8, type=int)
+parser.add_argument('--CLIP_loss', help="use clip text features based loss", action='store_true')
+parser.add_argument("--CLIP_text_path", help="path to clip text features", default='./text_features/cifar10_[a_photo_of_a].pth', type=str)
 
 args = parser.parse_args()
 
@@ -46,10 +48,10 @@ os.makedirs(checkpoint_path, exist_ok=True)
 
 # set training params in args
 args.initial_lr = args.base_lr * (args.batch_size/256)
-args.name = '{}-lr-{}-g-{}-s-{}-e-{}-adv-{}-pre-{}'.format(args.model, args.base_lr,
-                                                            args.gamma, args.step,
-                                                            args.epochs, args.adv_training,
-                                                            args.pretrained)
+args.name = '{}-lr-{}-g-{}-s-{}-e-{}-adv-{}-pre-{}-clip-{}'.format(args.model, args.base_lr,
+                                                                    args.gamma, args.step,
+                                                                    args.epochs, args.adv_training,
+                                                                    args.pretrained, args.CLIP_loss)
 
 
 # Create Directories
