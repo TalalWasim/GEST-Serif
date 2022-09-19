@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=efnetb2_saturate
+#SBATCH --job-name=clip_efnetb2_saturate
 #SBATCH --partition=default-short
 #SBATCH --time=12:00:00
 #SBATCH --nodes=1
