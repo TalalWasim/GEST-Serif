@@ -29,7 +29,7 @@ from sklearn.metrics import classification_report
 #### Single Epoch Training Function
 #############################################
 
-def train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device, text_features=None):
+def train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device):
 
     # put model in train mode
     model.train()
@@ -51,10 +51,7 @@ def train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device
         optimizer.zero_grad()
 
         # forward propagation
-        if text_features is None:
-            predictions = model(batch)
-        else:
-            get_clip_logits(model(batch), text_features)
+        predictions = model(batch)
 
         # calculate the loss
         loss = criterion(predictions, targets) # calculating loss
@@ -93,7 +90,7 @@ def train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device
 #### Test Function
 #############################################
 
-def test(model, test_loader, criterion, device, text_features=None):
+def test(model, test_loader, criterion, device):
 
     # put model in evaluation mode
     model.eval()
@@ -116,10 +113,7 @@ def test(model, test_loader, criterion, device, text_features=None):
             targets = targets.to(device)
 
             # forward propagation
-            if text_features is None:
-                predictions = model(batch)
-            else:
-                get_clip_logits(model(batch), text_features)
+            predictions = model(batch)
 
             # calculate the loss
             loss = criterion(predictions, targets)
@@ -149,13 +143,13 @@ def test(model, test_loader, criterion, device, text_features=None):
 #### Adversarial Test Function
 #############################################
 
-def test_adv(model, adv_loaders, criterion, device, text_features=None):
+def test_adv(model, adv_loaders, criterion, device):
 
     # test adv phase
     test_adv_loss = []
     test_adv_accuracy = []
     for loader in adv_loaders:
-        loss, accuracy = test(model, loader, criterion, device, text_features)
+        loss, accuracy = test(model, loader, criterion, device)
         test_adv_loss.append(loss)
         test_adv_accuracy.append(accuracy)
     
@@ -167,16 +161,16 @@ def test_adv(model, adv_loaders, criterion, device, text_features=None):
 #### Evaluation Function
 #############################################
 
-def evaluate(name, test_loader, checkpoint_path, CLASSES, text_features=None):
+def evaluate(name, test_loader, checkpoint_path, CLASSES, CLIP_loss=False, CLIP_text_path='./text_features/cifar10_[a_photo_of_a].pth'):
 
     # get model name
-    model_name = name.split('-')[0]
+    backbone_type = name.split('-')[0]
 
     # get device
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     # Build Model
-    model = get_model(model_name, len(CLASSES))
+    model = ADVModel(backbone_type, len(CLASSES), False, CLIP_loss, CLIP_text_path)
 
     # load checkpoint
     load_checkpoint(None, None, model, checkpoint_path)
@@ -201,10 +195,7 @@ def evaluate(name, test_loader, checkpoint_path, CLASSES, text_features=None):
             targets = targets.to(device)
 
             # forward propagation
-            if text_features is None:
-                predictions = model(batch)
-            else:
-                get_clip_logits(model(batch), text_features)
+            predictions = model(batch)
             predictions = F.softmax(predictions, dim=1)
             y_pred.append(predictions.cpu().numpy())
 
@@ -225,18 +216,12 @@ def train(args):
 
     # set device and create model
     device = torch.device("cuda:{}".format(args.gpu)) if torch.cuda.is_available() else torch.device("cpu")
-    model = get_model(args.model, len(CLASSES), pretrained=args.pretrained)
+    model = ADVModel(args.model, len(CLASSES), args.pretrained, args.CLIP_loss, args.CLIP_text_path)
     model = model.to(device);
 
     # Loss, Scheduler, Optimizer
     criterion = get_loss()
     optimizer, scheduler = get_optimizer_scheduler(model, args.initial_lr, args.step, args.gamma)
-
-    # Define CLIP Loss:
-    if args.CLIP_loss:
-        text_features = torch.load(args.CLIP_text_path)
-    else:
-        text_features = None
 
     # create log dictionary
     log_dict = {
@@ -282,15 +267,15 @@ def train(args):
 
         # training phase
         print(f'[{epoch:03d}] starting training phase')
-        train_loss, train_accuracy = train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device, text_features)
+        train_loss, train_accuracy = train_for_epoch(model, train_loader, criterion, optimizer, scheduler, device)
 
         # test phase
         print(f'[{epoch:03d}] starting testing phase')
-        test_loss, test_accuracy = test(model, test_loader, criterion, device, text_features)
+        test_loss, test_accuracy = test(model, test_loader, criterion, device)
 
         # adversarial test phase
         print(f'[{epoch:03d}] starting adversarial testing phase')
-        test_adv_loss, test_adv_accuracy = test_adv(model, adv_loaders, criterion, device, text_features)
+        test_adv_loss, test_adv_accuracy = test_adv(model, adv_loaders, criterion, device)
         
         # print console log
         print(f'[{epoch:03d}] train loss: {train_loss:04f}', f'train accuracy: {train_accuracy:04f}')
@@ -356,15 +341,6 @@ def train(args):
 
 
 ############################################
-#### CLIP Logits Function
-############################################
-
-def get_clip_logits(image_features, text_features):
-    return 0
-
-
-
-############################################
 #### Save/Load Functions
 ############################################
 
@@ -404,44 +380,58 @@ def load_dict(path):
 #### Build Model
 #############################################
 
-def get_model(model_name, num_classes, pretrained=False):
-    
-    if model_name == 'Resnet18':
-        model = torchvision.models.resnet18(pretrained=pretrained)
-    
-        in_features = model.fc.in_features
-        out_features = num_classes
-        model.fc = nn.Linear(in_features, out_features)
+class ADVModel(nn.Module):
+    def __init__(self,
+                backbone_type='Resnet18',
+                num_classes=10,
+                pretrained=False,
+                CLIP_loss=False,
+                CLIP_text_path='./text_features/cifar10_[a_photo_of_a].pth'
+                ):
+        super().__init__()
+
+        self.CLIP_loss = CLIP_loss
+        self.num_classes = 512 if self.CLIP_loss else num_classes
+
+        if backbone_type == 'Resnet18':
+            self.backbone = torchvision.models.resnet18(pretrained=pretrained)
         
-        return model
-    
-    elif model_name == 'EfNetB2':
-
-        # download pretrained model
-        model = torchvision.models.efficientnet_b2(pretrained=pretrained)
-
-        # define input and output features size
-        in_features = model.classifier[1].in_features
-        out_features = num_classes
-
-        # replace the last layer
-        model.classifier[1] = nn.Linear(in_features, out_features, bias=True)
+            in_features = self.backbone.fc.in_features
+            self.backbone.fc = nn.Linear(in_features, self.num_classes)
         
-        return model
-    
-    elif model_name == 'ViTB16':
+        elif backbone_type == 'EfNetB2':
+            self.backbone = torchvision.models.efficientnet_b2(pretrained=pretrained)
 
-        # download pretrained model
-        model = torchvision.models.vit_b_16(pretrained=pretrained)
-
-        # define input and output features size
-        in_features = model.heads.head.in_features
-        out_features = num_classes
-
-        # replace the last layer
-        model.heads.head = nn.Linear(in_features, out_features, bias=True)
+            in_features = self.backbone.classifier[1].in_features
+            self.backbone.classifier[1] = nn.Linear(in_features, self.num_classes, bias=True)
         
-        return model
+        elif backbone_type == 'ViTB16':
+            self.backbone = torchvision.models.vit_b_16(pretrained=pretrained)
+
+            in_features = self.backbone.heads.head.in_features
+            self.backbone.heads.head = nn.Linear(in_features, self.num_classes, bias=True)
+        
+        if self.CLIP_loss:
+            self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+            self.text_features = torch.load(CLIP_text_path)
+        
+        def forward(self, x):
+            if self.CLIP_loss:
+                image_features = self.backbone(x)
+                text_features = self.text_features.to(image_features.device)
+
+                # normalized features
+                image_features = image_features / image_features.norm(dim=1, keepdim=True)
+                text_features = text_features / text_features.norm(dim=1, keepdim=True)
+
+                # cosine similarity as logits
+                logit_scale = self.logit_scale.exp()
+                logits = logit_scale * image_features @ text_features.t()
+
+            else:
+                logits = self.backbone(x)
+
+            return logits
 
 
 
