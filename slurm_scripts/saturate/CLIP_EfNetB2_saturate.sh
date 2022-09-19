@@ -20,4 +20,4 @@ python train.py \
 --gpu 0 \
 --seed 50 \
 --CLIP_loss \
---CLIP_text_path './text_features/cifar10_[a_photo_of_a].pth'
+--CLIP_text_path './text_features/gpt3_templates.pth'
