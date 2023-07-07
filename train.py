@@ -9,22 +9,27 @@ from trainUtils import train
 
 
 # define arguments
-parser = argparse.ArgumentParser(description="Provide adversarial evaluation pipeline.")
-parser.add_argument("--model", help="model to be trained (Resnet18, EfNetB0, ViT_B16)", default='Resnet18', type=str)
-parser.add_argument('--pretrained', help="load pretrained weights", action='store_true')
-parser.add_argument("--adv_folder", help="adversarial dataset folder", default='../datasets/CIFAR-10-C', type=str)
-parser.add_argument('--adv_training', help="include adversarial transform during training", action='store_true')
-parser.add_argument("--adv_dataset", help="adversarial dataset", default='gaussian_blur', type=str)
+parser = argparse.ArgumentParser(description="Provide GEST Fonts/Serifs training pipeline.")
+parser.add_argument("--label", help="training label (fonts/serifs)", default='serifs', type=str)
+parser.add_argument("--model", help="model to be trained", default='resnet18', type=str)
+parser.add_argument("--train_folder", help="training dataset folder", default='../font_images_train', type=str)
+parser.add_argument('--test_folder', help="testing dataset folder", default='../font_images_test', type=str)
+
+# optimizer
 parser.add_argument("--base_lr", help="base learning rate", default=0.001, type=float)
 parser.add_argument("--epochs", help="number of training epochs", default=30, type=int)
 parser.add_argument("--batch_size", help="training batch size", default=256, type=int)
 parser.add_argument("--gamma", help="step LR scheduler gamma", default=0.1, type=float)
 parser.add_argument("--step", help="step LR scheduler step size", default=5, type=int)
+
+# transforms
+parser.add_argument("--resize_size", help="size to which image is resized", default=600, type=int)
+parser.add_argument("--crop_size", help="size to which image is cropped", default=448, type=int)
+
+# misc
 parser.add_argument("--gpu", help="gpu id", default=0, type=int)
 parser.add_argument("--seed", help="random seed", default=50, type=int)
 parser.add_argument("--num_workers", help="number of data loading workers", default=8, type=int)
-parser.add_argument('--CLIP_loss', help="use clip text features based loss", action='store_true')
-parser.add_argument("--CLIP_text_path", help="path to clip text features", default='./text_features/cifar10_[a_photo_of_a].pth', type=str)
 
 args = parser.parse_args()
 
@@ -48,17 +53,14 @@ os.makedirs(checkpoint_path, exist_ok=True)
 
 # set training params in args
 args.initial_lr = args.base_lr * (args.batch_size/256)
-args.name = '{}-lr-{}-g-{}-s-{}-e-{}-adv-{}-pre-{}-clip-{}'.format(args.model, args.base_lr,
-                                                                    args.gamma, args.step,
-                                                                    args.epochs, args.adv_training,
-                                                                    args.pretrained, args.CLIP_loss)
+args.name = '{}-{}-lr-{}-g-{}-s-{}-e-{}'.format(args.label, args.model,
+                                                args.base_lr, args.gamma,
+                                                args.step, args.epochs)
 
 
 # Create Directories
 # NOTE: THIS WILL OVERWRITE PREVIOUS RUN OF THE SAME NAME
-args.checkpoint_dir = os.path.join(checkpoint_path, args.adv_dataset, args.name)
-args.adv_data_path = os.path.join(args.adv_folder, '{}.npy'.format(args.adv_dataset))
-args.adv_targets_path = os.path.join(args.adv_folder, 'labels.npy')
+args.checkpoint_dir = os.path.join(checkpoint_path, args.name)
 
 if os.path.exists(args.checkpoint_dir) and os.path.isdir(args.checkpoint_dir):
     shutil.rmtree(args.checkpoint_dir)
