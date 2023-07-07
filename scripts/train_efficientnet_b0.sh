@@ -1,8 +1,8 @@
 python train.py \
 --label 'Serifs' \
---model 'vit_b_16' \
---train_folder '../font_images_train' \
---test_folder '../font_images_test' \
+--model 'efficientnet_b0' \
+--train_folder '../serif_dataset/train' \
+--test_folder '../serif_dataset/test' \
 --base_lr 0.01 \
 --epochs 30 \
 --batch_size 32 \

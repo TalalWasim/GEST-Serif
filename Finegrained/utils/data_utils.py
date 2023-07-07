@@ -28,8 +28,8 @@ def get_loader(args):
                                     transforms.ToTensor(),
                                     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
         
-        trainset = ImageFolder(root=os.path.join(args.data_root, 'images', 'train'), transform=train_transform)
-        testset = ImageFolder(root=os.path.join(args.data_root, 'images', 'test'), transform=test_transform)
+        trainset = ImageFolder(root=os.path.join(args.data_root, 'train'), transform=train_transform)
+        testset = ImageFolder(root=os.path.join(args.data_root, 'test'), transform=test_transform)
 
     if args.local_rank == 0:
         torch.distributed.barrier()
