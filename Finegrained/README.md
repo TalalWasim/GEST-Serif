@@ -12,4 +12,3 @@ wget https://storage.googleapis.com/vit_models/imagenet21k/{MODEL_NAME}.npz
 ### Train
 
 To train TransFG on Serifs dataset, please refer to the `run_train.sh` script and update the `--data_root` and `--pretrained_dir` arguments. 
-
